@@ -1,51 +1,66 @@
 require 'fileutils'
-require 'optparse'
+require 'benchmark'
 require_relative 'secure_file_eraser'
 
-def expand_directories(paths)
-  files = []
-  paths.each do |path|
-    if File.directory?(path)
-      Dir.glob("#{path}/**/*").each do |file|
-        files << file if File.file?(file)
-      end
-    else
-      files << path if File.file?(path)
-    end
+class Cerberus
+  def initialize(file_paths)
+    @file_paths = file_paths
   end
-  files
-end
 
-def clean_directories(paths)
-  paths.each do |path|
-    if File.directory?(path)
+  def run
+    if @file_paths.empty?
+      puts "No files or directories specified."
+      exit 1
+    end
+
+    time = Benchmark.measure do
+      all_files = expand_directories(@file_paths)
       begin
-        FileUtils.remove_dir(path)
-        puts "Directory #{path} has been securely deleted."
-      rescue Errno::EACCES
-        puts "Permission denied for directory #{path}"
+        eraser = SecureFileEraser.new(all_files)
+        puts "Processing ..."
+        eraser.erase_files
+        clean_directories(@file_paths)
       rescue => e
-        puts "Failed to delete directory #{path}: #{e.message}"
+        puts "An error occurred: #{e.message}"
+        exit 1
+      end
+    end
+
+    puts "All files have been securely deleted."
+    puts "Time elapsed - #{time.real.to_i} seconds"
+  end
+
+  private
+
+  def expand_directories(paths)
+    files = []
+    paths.each do |path|
+      if File.directory?(path)
+        Dir.glob("#{path}/**/*").each do |file|
+          files << file if File.file?(file)
+        end
+      else
+        files << path if File.file?(path)
+      end
+    end
+    files
+  end
+
+  def clean_directories(paths)
+    paths.each do |path|
+      if File.directory?(path)
+        begin
+          FileUtils.remove_dir(path)
+          puts "Directory #{path} has been securely deleted."
+        rescue Errno::EACCES
+          puts "Permission denied for directory #{path}"
+        rescue => e
+          puts "Failed to delete directory #{path}: #{e.message}"
+        end
       end
     end
   end
 end
 
-options = {}
-OptionParser.new do |opts|
-  opts.banner = "Usage: cerberus.rb [options]"
-
-  opts.on("-f", "--files FILES", "Comma-separated list of files and directories to erase") do |files|
-    options[:files] = files
-  end
-end.parse!
-
-if options[:files]
-  file_paths = options[:files].split(',').map(&:strip)
-  all_files = expand_directories(file_paths)
-  eraser = SecureFileEraser.new(all_files)
-  eraser.erase_files
-  clean_directories(file_paths)
-else
-  puts "No files specified. Use -f or --files option to specify files and directories."
-end
+cerberus = Cerberus.new(ARGV)
+cerberus.run
