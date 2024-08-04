@@ -1,3 +1,4 @@
+# secure_file_eraser.rb
 require 'securerandom'
 require 'concurrent-ruby'
 require 'etc'
@@ -10,8 +11,6 @@ class SecureFileEraser
   end
 
   def erase_files
-    raise "Files does not exist." if @file_paths.empty?
-
     futures = @file_paths.map do |file_path|
       Concurrent::Promises.future_on(@pool) do
         begin
@@ -22,18 +21,20 @@ class SecureFileEraser
               erase_file(file_path)
             end
             File.delete(file_path)
+            puts "File #{file_path} has been securely deleted."
           else
-            raise "File #{file_path} does not exist."
+            puts "File #{file_path} does not exist."
           end
         rescue Errno::EACCES
-          raise "Permission denied for file #{file_path}"
+          puts "Permission denied for file #{file_path}"
         rescue => e
-          raise "Failed to delete file #{file_path}: #{e.message}"
+          puts "Failed to delete file #{file_path}: #{e.message}"
         end
       end
     end
 
-    futures.each(&:wait)
+    # Await the completion of all futures
+    futures.each(&:value)
     @pool.shutdown
     @pool.wait_for_termination
   end
@@ -44,9 +45,9 @@ class SecureFileEraser
     file_size = File.size(file_path)
 
     File.open(file_path, 'r+b') do |file|
-      overwrite_with_value(file, file_size, -> { SecureRandom.random_bytes(1024 * 1024) })
-      overwrite_with_value(file, file_size, -> { "\x00" * 1024 * 1024 })
-      overwrite_with_value(file, file_size, -> { "\xFF" * 1024 * 1024 })
+      overwrite_with_value(file, file_size, -> { SecureRandom.random_bytes(1024 * 1024) }) # 1 MB block
+      overwrite_with_value(file, file_size, -> { "\x00" * 1024 * 1024 }) # 1 MB block
+      overwrite_with_value(file, file_size, -> { "\xFF" * 1024 * 1024 }) # 1 MB block
     end
   end
 
@@ -55,19 +56,20 @@ class SecureFileEraser
     block_size = file_size / @thread_count
 
     threads = @thread_count.times.map do |i|
-      Concurrent::Promises.future_on(@pool) do
+      Thread.new do
         start_pos = i * block_size
         end_pos = (i == @thread_count - 1) ? file_size : (i + 1) * block_size
 
         File.open(file_path, 'r+b') do |file|
-          overwrite_with_value_in_range(file, start_pos, end_pos, -> { SecureRandom.random_bytes(1024 * 1024) })
-          overwrite_with_value_in_range(file, start_pos, end_pos, -> { "\x00" * 1024 * 1024 })
-          overwrite_with_value_in_range(file, start_pos, end_pos, -> { "\xFF" * 1024 * 1024 })
+          overwrite_with_value_in_range(file, start_pos, end_pos, -> { SecureRandom.random_bytes(1024 * 1024) }) # 1 MB block
+          overwrite_with_value_in_range(file, start_pos, end_pos, -> { "\x00" * 1024 * 1024 }) # 1 MB block
+          overwrite_with_value_in_range(file, start_pos, end_pos, -> { "\xFF" * 1024 * 1024 }) # 1 MB block
         end
       end
     end
 
-    threads.each(&:wait)
+    # Await the completion of all threads
+    threads.each(&:join)
   end
 
   def overwrite_with_value(file, size, value_proc)
