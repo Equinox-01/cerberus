@@ -1,6 +1,6 @@
 # Cerberus
 
-**Cerberus** is a tool for securely deleting files and directories using the DoD 5220.22-M method. It offersa command-line application.
+**Cerberus** is a tool for securely deleting files and directories using the DoD 5220.22-M method. It offers a command-line application.
 
 ## Features
 
@@ -9,12 +9,12 @@
 
 ## Installation
 
-1. **Install Ruby**: Make sure Ruby is installed on your system. You can download it from [Ruby's official website](https://www.ruby-lang.org/en/downloads/).
+1. **Install Ruby**: Make sure Ruby is installed on your system.
 
 2. **Install Required Gems**:
-      ```sh
-      gem install concurrent-ruby
-      ```
+    ```sh
+    gem install concurrent-ruby
+    ```
 
 3. **Clone the Repository**:
     ```sh
@@ -23,7 +23,6 @@
     ```
 
 ## Usage
-
 
 1. **Run the Terminal App**:
     ```sh
@@ -39,8 +38,3 @@
 
 - **`secure_file_eraser.rb`**: Contains the core logic for securely deleting files and directories.
 - **`cerberus.rb`**: Command-line application for handling file and directory deletion.
-
-## Example
-
-```sh
-ruby cerberus.rb file1.txt file2.txt /path/to/directory
